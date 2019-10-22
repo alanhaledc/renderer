@@ -5,7 +5,7 @@
  * @LastEditTime: 2019/10/20
  */
 
-import { VNodeFlags, ChildrenFlags } from './flags'
+import { Flags, ChildrenFlags } from './flags'
 import { createTextVNode } from './h'
 import mount from './mount'
 import patch from './patch'

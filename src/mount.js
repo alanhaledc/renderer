@@ -2,30 +2,31 @@
  * @Author: Hale
  * @Description: mount 函数，生成全新的 DOM
  * @Date: 2019/10/20
- * @LastEditTime: 2019/10/20
+ * @LastEditTime: 2019/10/22
  */
 
-import { VNodeFlags, ChildrenFlags } from './flags'
+import { Flags, ChildrenFlags } from './flags'
 import patch, { patchData } from './patch'
 import { domPromsRE } from './util'
+import { createTextVNode } from './h'
 
 export default function mount(vnode, container, isSVG, refNode) {
   const { flags } = vnode
-  if (flags & VNodeFlags.ELEMENT) {
+  if (flags & Flags.ELEMENT) {
     mountElement(vnode, container, isSVG, refNode)
-  } else if (flags & VNodeFlags.COMPONENT) {
+  } else if (flags & Flags.COMPONENT) {
     mountComponent(vnode, container, isSVG)
-  } else if (flags & VNodeFlags.TEXT) {
+  } else if (flags & Flags.TEXT) {
     mountText(vnode, container)
-  } else if (flags & VNodeFlags.FRAGMENT) {
+  } else if (flags & Flags.FRAGMENT) {
     mountFragment(vnode, container, isSVG)
-  } else if (flags & VNodeFlags.PORTAL) {
+  } else if (flags & Flags.PORTAL) {
     mountPortal(vnode, container, isSVG)
   }
 }
 
 function mountElement(vnode, container, isSVG, refNode) {
-  isSVG = isSVG || vnode.tag & VNodeFlags.ELEMENT_SVG
+  isSVG = isSVG || vnode.tag === 'svg'
   const el = isSVG
     ? document.createAttributeNS('http://www.w3.org/2000/svg', vnode.tag)
     : document.createElement(vnode.tag)
@@ -33,16 +34,16 @@ function mountElement(vnode, container, isSVG, refNode) {
   const data = vnode.data
   if (data) {
     for (let key in data) {
-      patchData(el, key, null, data[key])
+      patchData(el, key, null, data[key]) // 没有 prevValue 创建属性
     }
   }
 
   const children = vnode.children
-  const childFlags = vnode.childFlags
-  if (childFlags !== ChildrenFlags.NO_CHILDREN) {
-    if (childFlags & ChildrenFlags.SINGLE_VNODE) {
+  const childrenFlags = vnode.childrenFlags
+  if (childrenFlags !== ChildrenFlags.NO_CHILDREN) {
+    if (childrenFlags & ChildrenFlags.SINGLE_CHILDREN) {
       mount(children, el, isSVG)
-    } else if (childFlags & ChildrenFlags.MUTIPLE_VNODES) {
+    } else if (childrenFlags & ChildrenFlags.MULTIPLE_CHILDREN) {
       for (let i = 0; i < children.length; i++) {
         mount(children[i], el, isSVG)
       }
@@ -58,16 +59,18 @@ function mountText(vnode, container) {
 }
 
 function mountFragment(vnode, container, isSVG) {
-  const { children, childFlags } = vnode
-  switch (childFlags) {
-    case ChildrenFlags.SINGLE_VNODE:
-      mount(children, container, isSVG)
-      vnode.el = children.el
-      break
+  const { children, childrenFlags } = vnode
+
+  // 注意每种情况的 el 都不一样
+  switch (childrenFlags) {
     case ChildrenFlags.NO_CHILDREN:
-      const placeholder = createTextVNode('')
+      const placeholder = createTextVNode('') // 创建占位的空的文本节点
       mountText(placeholder, container)
       vnode.el = placeholder.el
+      break
+    case ChildrenFlags.SINGLE_CHILDREN:
+      mount(children, container, isSVG)
+      vnode.el = children.el
       break
     default:
       for (let i = 0; i < children.length; i++) {
@@ -78,23 +81,23 @@ function mountFragment(vnode, container, isSVG) {
 }
 
 function mountPortal(vnode, container, isSVG) {
-  const { tag, children, childFlags } = vnode
-  const target = typeof tag === 'string' ? document.querySelector(tag) : tag
-  if (childFlags & ChildrenFlags.SINGLE_VNODE) {
+  const { tag, children, childrenFlags } = vnode
+  const target = typeof tag === 'string' ? document.querySelector(tag) : tag // 挂载的目标元素
+  if (childrenFlags & ChildrenFlags.SINGLE_CHILDREN) {
     mount(children, target, isSVG)
-  } else if (childFlags & ChildrenFlags.MUTIPLE_VNODES) {
+  } else if (childrenFlags & ChildrenFlags.MULTIPLE_CHILDREN) {
     for (let i = 0; i < children.length; i++) {
       mount(children[i], target, isSVG)
     }
   }
 
   const placeholder = createTextVNode('')
-  mountText(placeholder, container)
+  mountText(placeholder, container) // 原来的 container 挂载一个空的文本节点
   vnode.el = placeholder.el
 }
 
 function mountComponent(vnode, container, isSVG) {
-  if (vnode.flags & VNodeFlags.COMPONENT_STATEFUL) {
+  if (vnode.flags & Flags.STATEFUL_COMPONENT) {
     mountStatefulComponent(vnode, container, isSVG)
   } else {
     mountFunctionalComponent(vnode, container, isSVG)
@@ -102,22 +105,22 @@ function mountComponent(vnode, container, isSVG) {
 }
 
 function mountStatefulComponent(vnode, container, isSVG) {
-  const instance = (vnode.children = new vnode.tag()) // 组件实例赋值给 children
+  const instance = (vnode.children = new vnode.tag()) // 组件实例存储在 children 中
   instance.$props = vnode.data
 
   instance._update = function() {
     // patch
     if (instance._mounted) {
-      const prevVNode = instance.$vnode
-      const nextVNode = (instance.$vnode = instance.render())
-      patch(prevVNode, nextVNode, prevVNode.el.parentNode)
+      const prevVNode = instance.$vnode // 缓存旧的 VNode
+      const nextVNode = (instance.$vnode = instance.render()) // 生成新的 VNode 并替换掉旧的
+      patch(prevVNode, nextVNode, prevVNode.el.parentNode) // 挂载到旧的父节点上
       instance.$el = vnode.el = instance.$vnode.el
     } else {
-      instance.$vnode = instance.render()
+      instance.$vnode = instance.render() // render 生成一个 VNode
       mount(instance.$vnode, container, isSVG)
       instance._mounted = true
       instance.$el = vnode.el = instance.$vnode.el
-      instance.mounted && instance.mounted()
+      instance.mounted && instance.mounted() // 执行挂载函数
     }
   }
   instance._update()
@@ -129,16 +132,17 @@ function mountFunctionalComponent(vnode, container, isSVG) {
     next: vnode,
     container,
     update: () => {
+      // patch
       if (vnode.handle.prev) {
-        const prevVNode = vnode.handle.prev
-        const nextVNode = vnode.handle.next
-        const prevTree = prevVNode.children // 生成的 VNode
+        const prevVNode = vnode.handle.prev // 旧的 VNode
+        const nextVNode = vnode.handle.next // 新的 VNode
+        const prevTree = prevVNode.children // 旧的函数返回值
         const props = nextVNode.data
-        const nextTree = (nextVNode.children = nextVNode.tag(props))
+        const nextTree = (nextVNode.children = nextVNode.tag(props)) // 新的函数返回值，并替换掉旧的
         patch(prevTree, nextTree, vnode.handle.container)
       } else {
-        const props = vnode.data
-        const $vnode = (vnode.children = vnode.tag(props))
+        const props = vnode.data // 这里暂时将 data 的值都当成 props
+        const $vnode = (vnode.children = vnode.tag(props)) // 函数返回值（生成一个 VNode）并存储在 children 中
         mount($vnode, container, isSVG)
         vnode.el = $vnode.el
       }

@@ -2,10 +2,10 @@
  * @Author: Hale
  * @Description: patch 函数，更新 DOM
  * @Date: 2019/10/20
- * @LastEditTime: 2019/10/20
+ * @LastEditTime: 2019/10/22
  */
 
-import { VNodeFlags, ChildrenFlags } from './flags'
+import { Flags, ChildrenFlags } from './flags'
 import mount from './mount'
 import { domPromsRE } from './util'
 import { noneKeyDiff as diff } from './diff'
@@ -16,24 +16,24 @@ export default function patch(prevVNode, nextVNode, container) {
 
   if (prevFlags !== nextFlags) {
     replaceVNode(prevVNode, nextVNode, container)
-  } else if (nextFlags & VNodeFlags.ELEMENT) {
+  } else if (nextFlags & Flags.ELEMENT) {
     patchElement(prevVNode, nextVNode, container)
-  } else if (nextFlags & VNodeFlags.COMPONENT) {
+  } else if (nextFlags & Flags.COMPONENT) {
     patchComponent(prevVNode, nextVNode, container)
-  } else if (nextFlags & VNodeFlags.TEXT) {
+  } else if (nextFlags & Flags.TEXT) {
     patchText(prevVNode, nextVNode)
-  } else if (nextFlags & VNodeFlags.FRAGMENT) {
+  } else if (nextFlags & Flags.FRAGMENT) {
     patchFragment(prevVNode, nextVNode, container)
-  } else if (nextFlags & VNodeFlags.PORTAL) {
+  } else if (nextFlags & Flags.PORTAL) {
     patchPortal(prevVNode, nextVNode)
   }
 }
 
 function replaceVNode(prevVNode, nextVNode, container) {
   container.removeChild(prevVNode.el)
-  if (prevVNode.flags & VNodeFlags.COMPONENT_STATEFUL) {
+  if (prevVNode.flags & Flags.STATEFUL_COMPONENT) {
     const instance = prevVNode.children
-    instance.unmounted && instance.unmounted()
+    instance.unmounted && instance.unmounted() // 执行卸载函数
   }
   mount(nextVNode, container)
 }
@@ -44,7 +44,7 @@ function patchElement(prevVNode, nextVNode, container) {
     return
   }
 
-  const el = (nextVNode.el = prevVNode.el)
+  const el = (nextVNode.el = prevVNode.el) // el 不变，同一个引用
   const prevData = prevVNode.data
   const nextData = nextVNode.data
 
@@ -66,8 +66,8 @@ function patchElement(prevVNode, nextVNode, container) {
   }
 
   patchChildren(
-    prevVNode.childFlags,
-    nextVNode.childFlags,
+    prevVNode.childrenFlags,
+    nextVNode.childrenFlags,
     prevVNode.children,
     nextVNode.children,
     el
@@ -127,21 +127,34 @@ export function patchData(el, key, prevValue, nextValue) {
 }
 
 function patchChildren(
-  prevChildFlags,
-  nextChildFlags,
+  prevChildrenFlags,
+  nextChildrenFlags,
   prevChildren,
   nextChildren,
   container
 ) {
-  switch (prevChildFlags) {
-    case ChildrenFlags.SINGLE_VNODE:
-      switch (nextChildFlags) {
-        case ChildrenFlags.SINGLE_VNODE:
+  switch (prevChildrenFlags) {
+    case ChildrenFlags.NO_CHILDREN:
+      switch (nextChildrenFlags) {
+        case ChildrenFlags.NO_CHILDREN:
+          break
+        case ChildrenFlags.SINGLE_CHILDREN:
+          mount(nextChildren, container)
+          break
+        default:
+          for (let i = 0; i < nextChildren.length; i++) {
+            mount(nextChildren[i], container)
+          }
+      }
+      break
+    case ChildrenFlags.SINGLE_CHILDREN:
+      switch (nextChildrenFlags) {
+        case ChildrenFlags.NO_CHILDREN:
+          container.removeChild(prevChildren.el)
+          break
+        case ChildrenFlags.SINGLE_CHILDREN:
           patch(prevChildren, nextChildren, container)
           break
-        case ChildrenFlags.NO_CHILDREN:
-          container.removeChild(prevChildren.el)
-          break
         default:
           container.removeChild(prevChildren.el)
           for (let i = 0; i < nextChildren.length; i++) {
@@ -149,71 +162,63 @@ function patchChildren(
           }
       }
       break
-    case ChildrenFlags.NO_CHILDREN:
-      switch (nextChildFlags) {
-        case ChildrenFlags.SINGLE_VNODE:
-          mount(nextChildren, container)
-          break
-        case ChildrenFlags.NO_CHILDREN:
-          break
-        default:
-          for (let i = 0; i < nextChildren.length; i++) {
-            mount(nextChildren[i], container)
-          }
-      }
-      break
+    // case ChildrenFlags.MULTIPLE_CHILDREN
     default:
-      switch (nextChildFlags) {
-        case ChildrenFlags.SINGLE_VNODE:
-          for (let i = 0; i < prevChildren.length; i++) {
-            container.removeChild(prevChildren[i].el)
-          }
-          mount(nextChildren, container)
-          break
+      switch (nextChildrenFlags) {
         case ChildrenFlags.NO_CHILDREN:
           for (let i = 0; i < prevChildren.length; i++) {
             container.removeChild(prevChildren[i].el)
           }
           break
+        case ChildrenFlags.SINGLE_CHILDREN:
+          for (let i = 0; i < prevChildren.length; i++) {
+            container.removeChild(prevChildren[i].el)
+          }
+          mount(nextChildren, container)
+          break
         default:
+          // MULTIPLE_CHILDREN => MULTIPLE_CHILDREN
+          // 这里才需要使用 Diff 算法
           diff(prevChildren, nextChildren, container, mount, patch)
       }
   }
 }
 
 function patchText(prevVNode, nextVNode) {
-  const el = (nextVNode.el = prevVNode.el)
+  const el = (nextVNode.el = prevVNode.el) // el 不变，同一个引用
   if (nextVNode.children !== prevVNode.children) {
     el.nodeValue = nextVNode.children
   }
 }
 
 function patchFragment(prevVNode, nextVNode, container) {
+  // Fragment 只有 children 没有标签和属性，先 patch children
   patchChildren(
-    prevVNode.childFlags,
-    nextVNode.childFlags,
+    prevVNode.childrenFlags,
+    nextVNode.childrenFlags,
     prevVNode.children,
     nextVNode.children,
     container
   )
 
-  // 更新 el
-  switch (nextVNode.childFlags) {
-    case ChildrenFlags.SINGLE_VNODE:
-      nextVNode.el = nextVNode.children.el
-      break
+  // 再更新 el
+  switch (nextVNode.childrenFlags) {
     case ChildrenFlags.NO_CHILDREN:
       nextVNode.el = prevVNode.el
+    case ChildrenFlags.SINGLE_CHILDREN:
+      nextVNode.el = nextVNode.children.el
+      break
     default:
-      nextVNode.el = nextVNode.children[0].el
+      nextVNode.el = nextVNode.children[0].el // 存储第一个 child 的 el
       break
   }
 }
 
 function patchPortal(prevVNode, nextVNode) {
+  // Portal 是可以到处挂载的 Fragment
   patchChildren(
-    prevVNode.childFlags,
-    nextVNode.childFlags,
+    prevVNode.childrenFlags,
+    nextVNode.childrenFlags,
     prevVNode.children,
     nextVNode.children,
     prevVNode.tag
@@ -227,11 +232,11 @@ function patchPortal(prevVNode, nextVNode) {
         ? document.querySelector(nextVNode.tag)
         : nextVNode.tag
 
-    switch (nextVNode.childFlags) {
-      case ChildrenFlags.SINGLE_VNODE:
-        container.appendChild(nextVNode.children.el)
-        break
+    switch (nextVNode.childrenFlags) {
       case ChildrenFlags.NO_CHILDREN:
+        break
+      case ChildrenFlags.SINGLE_CHILDREN:
+        container.appendChild(nextVNode.children.el)
         break
       default:
         for (let i = 0; i < nextVNode.children.length; i++) {
@@ -244,7 +249,7 @@ function patchPortal(prevVNode, nextVNode) {
 function patchComponent(prevVNode, nextVNode, container) {
   if (nextVNode.tag !== prevVNode.tag) {
     replaceVNode(prevVNode, nextVNode, container)
-  } else if (nextVNode.flags & VNodeFlags.COMPONENT_STATEFUL) {
+  } else if (nextVNode.flags & Flags.STATEFUL_COMPONENT) {
     const instance = (nextVNode.children = prevVNode.children)
     instance.$props = nextVNode.data
     instance._update()

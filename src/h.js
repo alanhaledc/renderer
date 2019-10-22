@@ -2,65 +2,65 @@
  * @Author: Hale
  * @Description: h 函数，生成 VNode
  * @Date: 2019/10/19
- * @LastEditTime: 2019/10/20
+ * @LastEditTime: 2019/10/22
  */
 
-import { VNodeFlags, ChildrenFlags } from './flags'
+import { Flags, ChildrenFlags } from './flags'
 
-export const Fragment = Symbol()
-export const Portal = Symbol()
+export const Fragment = Symbol('Fragment')
+export const Portal = Symbol('Portal')
 
 export function h(tag, data = null, children) {
   let flags = null
   if (typeof tag === 'string') {
-    flags = tag === 'svg' ? VNodeFlags.ELEMENT_SVG : VNodeFlags.ELEMENT_HTML
+    flags = Flags.ELEMENT
   } else if (tag === Fragment) {
-    flags = VNodeFlags.FRAGMENT
+    flags = Flags.FRAGMENT
   } else if (tag === Portal) {
-    flags = VNodeFlags.PORTAL
+    flags = Flags.PORTAL
     tag = data && data.target
   } else {
     if (tag !== null && typeof tag === 'object') {
       flags = tags.functional
-        ? VNodeFlags.COMPONENT_FUNCTIONAL
-        : VNodeFlags.COMPONENT_STATEFUL
+        ? Flags.FUNCTIONAL_COMPONENT
+        : Flags.STATEFUL_COMPONENT
     } else if (typeof tag === 'function') {
       flags =
         tag.prototype && tag.prototype.render
-          ? VNodeFlags.COMPONENT_STATEFUL
-          : VNodeFlags.COMPONENT_FUNCTIONAL
+          ? Flags.STATEFUL_COMPONENT
+          : Flags.FUNCTIONAL_COMPONENT
     }
   }
 
-  let childFlags = null
+  let childrenFlags = null
   if (Array.isArray(children)) {
     const { length } = children
     if (length === 0) {
-      childFlags = ChildrenFlags.NO_CHILDREN
+      childrenFlags = ChildrenFlags.NO_CHILDREN
     } else if (length === 1) {
-      childFlags = ChildrenFlags.SINGLE_VNODE
+      childrenFlags = ChildrenFlags.SINGLE_CHILDREN
       children = children[0]
     } else {
-      childFlags = ChildrenFlags.KEYED_VNODES
+      childrenFlags = ChildrenFlags.MULTIPLE_CHILDREN
       children = normalizeVNode(children)
     }
   } else if (children == null) {
-    childFlags = ChildrenFlags.NO_CHILDREN
+    childrenFlags = ChildrenFlags.NO_CHILDREN
   } else if (children._isVNode) {
-    childFlags = ChildrenFlags.SINGLE_VNODE
+    childrenFlags = ChildrenFlags.SINGLE_CHILDREN
   } else {
-    childFlags = ChildrenFlags.SINGLE_VNODE
+    childrenFlags = ChildrenFlags.SINGLE_CHILDREN
     children = createTextVNode(children + '')
   }
 
   return {
     _isVNode: true,
-    flags,
     tag,
+    flags,
     data,
     key: data && data.key ? data.key : null,
     children,
-    childFlags,
+    childrenFlags,
     el: null
   }
 }
@@ -80,10 +80,10 @@ function normalizeVNode(children) {
 export function createTextVNode(text) {
   return {
     _isVNode: true,
-    flags: VNodeFlags.TEXT,
     tag: null,
+    flags: Flags.TEXT,
     data: null,
     children: text,
-    childFlags: ChildrenFlags.NO_CHILDREN
+    childrenFlags: ChildrenFlags.NO_CHILDREN
   }
 }
