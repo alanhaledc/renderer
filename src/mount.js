@@ -2,7 +2,7 @@
  * @Author: Hale
  * @Description: mount 函数，生成全新的 DOM
  * @Date: 2019/10/20
- * @LastEditTime: 2019/10/22
+ * @LastEditTime : 2019/12/24
  */
 
 import { Flags, ChildrenFlags } from './flags'
@@ -26,20 +26,17 @@ export default function mount(vnode, container, isSVG, refNode) {
 }
 
 function mountElement(vnode, container, isSVG, refNode) {
-  isSVG = isSVG || vnode.tag === 'svg'
+  const { tag, data, children, childrenFlags } = vnode
+  isSVG = isSVG || tag === 'svg'
   const el = isSVG
     ? document.createAttributeNS('http://www.w3.org/2000/svg', vnode.tag)
     : document.createElement(vnode.tag)
   vnode.el = el
-  const data = vnode.data
   if (data) {
     for (let key in data) {
       patchData(el, key, null, data[key]) // 没有 prevValue 创建属性
     }
   }
-
-  const children = vnode.children
-  const childrenFlags = vnode.childrenFlags
   if (childrenFlags !== ChildrenFlags.NO_CHILDREN) {
     if (childrenFlags & ChildrenFlags.SINGLE_CHILDREN) {
       mount(children, el, isSVG)
