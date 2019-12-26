@@ -1,8 +1,8 @@
 /*
  * @Author: Hale
- * @Description: h 函数，生成 VNode
+ * @Description: 生成 VNode
  * @Date: 2019/10/19
- * @LastEditTime: 2019/10/22
+ * @LastEditTime : 2019/12/26
  */
 
 import { Flags, ChildrenFlags } from './flags'
@@ -10,7 +10,7 @@ import { Flags, ChildrenFlags } from './flags'
 export const Fragment = Symbol('Fragment')
 export const Portal = Symbol('Portal')
 
-export function h(tag, data = null, children) {
+export function createVNode(tag, data = null, children) {
   let flags = null
   if (typeof tag === 'string') {
     flags = Flags.ELEMENT

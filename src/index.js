@@ -2,10 +2,10 @@
  * @Author: Hale
  * @Description: render demo
  * @Date: 2019/10/18
- * @LastEditTime: 2019/10/20
+ * @LastEditTime : 2019/12/26
  */
 
-import { h, Portal, Fragment } from './h'
+import { createVNode as h, Portal, Fragment } from './vnode'
 import render from './render'
 
 const prevVNode = h('div', null, [

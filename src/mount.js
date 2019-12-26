@@ -2,13 +2,13 @@
  * @Author: Hale
  * @Description: mount 函数，生成全新的 DOM
  * @Date: 2019/10/20
- * @LastEditTime : 2019/12/24
+ * @LastEditTime : 2019/12/26
  */
 
 import { Flags, ChildrenFlags } from './flags'
 import patch, { patchData } from './patch'
 import { domPromsRE } from './util'
-import { createTextVNode } from './h'
+import { createTextVNode } from './vnode'
 
 export default function mount(vnode, container, isSVG, refNode) {
   const { flags } = vnode

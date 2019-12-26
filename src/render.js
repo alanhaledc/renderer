@@ -2,11 +2,11 @@
  * @Author: Hale
  * @Description: render 函数，通过 VNode 生成真实 DOM
  * @Date: 2019/10/19
- * @LastEditTime: 2019/10/20
+ * @LastEditTime : 2019/12/26
  */
 
 import { Flags, ChildrenFlags } from './flags'
-import { createTextVNode } from './h'
+import { createTextVNode } from './vnode'
 import mount from './mount'
 import patch from './patch'
 
