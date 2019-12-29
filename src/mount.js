@@ -2,7 +2,7 @@
  * @Author: Hale
  * @Description: mount 函数，生成全新的 DOM
  * @Date: 2019/10/20
- * @LastEditTime : 2019/12/26
+ * @LastEditTime : 2019/12/27
  */
 
 import { Flags, ChildrenFlags } from './flags'
@@ -34,16 +34,14 @@ function mountElement(vnode, container, isSVG, refNode) {
   vnode.el = el
   if (data) {
     for (let key in data) {
-      patchData(el, key, null, data[key]) // 没有 prevValue 创建属性
+      patchData(el, key, null, data[key]) // 没有 prevValue 则创建属性
     }
   }
-  if (childrenFlags !== ChildrenFlags.NO_CHILDREN) {
-    if (childrenFlags & ChildrenFlags.SINGLE_CHILDREN) {
-      mount(children, el, isSVG)
-    } else if (childrenFlags & ChildrenFlags.MULTIPLE_CHILDREN) {
-      for (let i = 0; i < children.length; i++) {
-        mount(children[i], el, isSVG)
-      }
+  if (childrenFlags & ChildrenFlags.SINGLE_CHILDREN) {
+    mount(children, el, isSVG)
+  } else if (childrenFlags & ChildrenFlags.MULTIPLE_CHILDREN) {
+    for (let i = 0; i < children.length; i++) {
+      mount(children[i], el, isSVG)
     }
   }
   refNode ? container.insertBefore(el, refNode) : container.appendChild(el)
@@ -61,7 +59,7 @@ function mountFragment(vnode, container, isSVG) {
   // 注意每种情况的 el 都不一样
   switch (childrenFlags) {
     case ChildrenFlags.NO_CHILDREN:
-      const placeholder = createTextVNode('') // 创建占位的空的文本节点
+      const placeholder = createTextVNode('') // 创建占位的空文本节点
       mountText(placeholder, container)
       vnode.el = placeholder.el
       break
@@ -113,8 +111,8 @@ function mountStatefulComponent(vnode, container, isSVG) {
       patch(prevVNode, nextVNode, prevVNode.el.parentNode) // 挂载到旧的父节点上
       instance.$el = vnode.el = instance.$vnode.el
     } else {
-      instance.$vnode = instance.render() // render 生成一个 VNode
-      mount(instance.$vnode, container, isSVG)
+      const $vnode = (instance.$vnode = instance.render()) // render 生成一个 VNode
+      mount($vnode, container, isSVG)
       instance._mounted = true
       instance.$el = vnode.el = instance.$vnode.el
       instance.mounted && instance.mounted() // 执行挂载函数
@@ -131,7 +129,7 @@ function mountFunctionalComponent(vnode, container, isSVG) {
     update: () => {
       // patch
       if (vnode.handle.prev) {
-        const prevVNode = vnode.handle.prev // 旧的 VNode
+        const prevVNode = vnode.handle.prev // 旧的 VNode -> patch 时更新
         const nextVNode = vnode.handle.next // 新的 VNode
         const prevTree = prevVNode.children // 旧的函数返回值
         const props = nextVNode.data

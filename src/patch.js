@@ -2,13 +2,13 @@
  * @Author: Hale
  * @Description: patch 函数，更新 DOM
  * @Date: 2019/10/20
- * @LastEditTime: 2019/10/22
+ * @LastEditTime : 2019/12/29
  */
 
 import { Flags, ChildrenFlags } from './flags'
 import mount from './mount'
-import { domPromsRE } from './util'
-import { noneKeyDiff as diff } from './diff'
+import { domPromsRE, isPlainObj } from './util'
+import { doubleSideDiff as diff } from './diff'
 
 export default function patch(prevVNode, nextVNode, container) {
   const nextFlags = nextVNode.flags
@@ -33,7 +33,7 @@ function replaceVNode(prevVNode, nextVNode, container) {
   container.removeChild(prevVNode.el)
   if (prevVNode.flags & Flags.STATEFUL_COMPONENT) {
     const instance = prevVNode.children
-    instance.unmounted && instance.unmounted() // 执行卸载函数
+    instance.unmounted && instance.unmounted() // 执行 unmounted 生命周期函数
   }
   mount(nextVNode, container)
 }
@@ -44,7 +44,7 @@ function patchElement(prevVNode, nextVNode, container) {
     return
   }
 
-  const el = (nextVNode.el = prevVNode.el) // el 不变，同一个引用
+  const el = (nextVNode.el = prevVNode.el) // el 不变，为同一个引用
   const prevData = prevVNode.data
   const nextData = nextVNode.data
 
@@ -88,18 +88,15 @@ export function patchData(el, key, prevValue, nextValue) {
       break
     case 'class':
       let res = ''
-      const rawClass = nextValue
-      if (typeof rawClass === 'string') {
-        res = rawClass
-      } else if (Array.isArray(rawClass)) {
-        for (let i = 0; i < rawClass.length; i++) {
-          res += rawClass[i] + ' '
+      if (typeof nextValue === 'string') {
+        res = nextValue
+      } else if (Array.isArray(nextValue)) {
+        for (let i = 0; i < nextValue.length; i++) {
+          res += nextValue[i] + ' '
         }
-      } else if (
-        Object.prototype.toString.call(rawClass) === '[object Object]'
-      ) {
-        for (let name in rawClass) {
-          if (rawClass[name]) {
+      } else if (isPlainObj(nextValue)) {
+        for (let name in nextValue) {
+          if (nextValue[name]) {
             res += name + ' '
           }
         }
@@ -178,7 +175,7 @@ function patchChildren(
           break
         default:
           // MULTIPLE_CHILDREN => MULTIPLE_CHILDREN
-          // 这里才需要使用 Diff 算法
+          // 这里才需要使用 Diff 算法，尽可能的复用节点
           diff(prevChildren, nextChildren, container, mount, patch)
       }
   }
@@ -192,7 +189,7 @@ function patchText(prevVNode, nextVNode) {
 }
 
 function patchFragment(prevVNode, nextVNode, container) {
-  // Fragment 只有 children 没有标签和属性，先 patch children
+  // 先 patch children
   patchChildren(
     prevVNode.childrenFlags,
     nextVNode.childrenFlags,
@@ -209,23 +206,25 @@ function patchFragment(prevVNode, nextVNode, container) {
       nextVNode.el = nextVNode.children.el
       break
     default:
-      nextVNode.el = nextVNode.children[0].el // 存储第一个 child 的 el
+      nextVNode.el = nextVNode.children[0].el // 存储第一个 Vnode 的 el
       break
   }
 }
 
 function patchPortal(prevVNode, nextVNode) {
-  // Portal 是可以到处挂载的 Fragment
+  // patch children
   patchChildren(
     prevVNode.childrenFlags,
     nextVNode.childrenFlags,
     prevVNode.children,
     nextVNode.children,
-    prevVNode.tag
+    prevVNode.tag // target
   )
 
+  // 更新 el
   nextVNode.el = prevVNode.el
 
+  // 新旧节点不同，需要移动子节点
   if (nextVNode.tag !== prevVNode.tag) {
     const container =
       typeof nextVNode.tag === 'string'
@@ -240,7 +239,7 @@ function patchPortal(prevVNode, nextVNode) {
         break
       default:
         for (let i = 0; i < nextVNode.children.length; i++) {
-          container.appendChild(nextVNode.children[i])
+          container.appendChild(nextVNode.children[i].el)
         }
     }
   }

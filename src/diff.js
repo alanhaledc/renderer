@@ -2,13 +2,13 @@
  * @Author: Hale
  * @Description: 核心 Diff 算法，这里实现了三种 Diff 算法
  * @Date: 2019/10/20
- * @LastEditTime: 2019/10/20
+ * @LastEditTime : 2019/12/29
  */
 
 import { lis } from './util'
 
 // 没有 key 的 Diff 算法，简单粗暴
-export function noneKeyDiff(
+export function unKeyedDiff(
   prevChildren,
   nextChildren,
   container,
@@ -44,7 +44,8 @@ export function commonDiff(
   mount,
   patch
 ) {
-  let lastIndex = 0 // prevChildren 最大的索引
+  debugger
+  let lastIndex = 0 // prevChildren 最大索引值，初始值是 0
   for (let i = 0; i < nextChildren.length; i++) {
     const nextVNode = nextChildren[i]
     let j = 0,
@@ -53,26 +54,26 @@ export function commonDiff(
       const prevVNode = prevChildren[j]
       if (nextVNode.key === prevVNode.key) {
         canFind = true
-        patch(prevVNode, nextVNode, container)
-        // 移动节点
+        patch(prevVNode, nextVNode, container) // 复用旧节点 -> 更新值
+        // 比最大索引小时（即索引变大时，从前往后移，有缺陷）-> 移动 DOM
         if (j < lastIndex) {
-          const refNode = nextChildren[i - 1].el.nextSibling
-          container.insertBefore(prevVNode.el, refNode)
+          const refNode = nextChildren[i - 1].el.nextSibling // 参考节点：前一个 VNode 的 DOM 的下一个节点
+          container.insertBefore(prevVNode.el, refNode) // 移动到参考节点前面 -> 即前一个 VNode 的 DOM 的后面
         } else {
-          lastIndex = j
+          lastIndex = j // 更新 lastIndex 的值
         }
       }
     }
 
-    // 新增节点
+    // 新增节点 -> prevChildren 的节点中找不到对应的 key
     if (!canFind) {
       const refNode =
-        i - 1 < 0 ? prevChildren[0].el : nextChildren[i - 1].nextSibling
+        i - 1 < 0 ? prevChildren[0].el : nextChildren[i - 1].el.nextSibling
       mount(nextVNode, container, false, refNode)
     }
   }
 
-  // 删除不存在的节点
+  // 删除节点 -> nextChildren 的节点中不存在对应的 key
   for (let i = 0; i < prevChildren.length; i++) {
     const prevVNode = prevChildren[i]
     const has = nextChildren.find(nextVnode => nextVnode.key === prevVNode.key)
@@ -82,8 +83,8 @@ export function commonDiff(
   }
 }
 
-// Vue2 Diff
-export function twoSideDiff(
+// Vue2 Diff -> 双端比较
+export function doubleSideDiff(
   prevChildren,
   nextChildren,
   container,
@@ -114,35 +115,43 @@ export function twoSideDiff(
       newEndVNode = nextChildren[--newEndIdx]
     } else if (oldStartVNode.key === newEndVNode.key) {
       patch(oldStartVNode, newEndVNode, container)
-      container.insertBefore(oldStartVNode.el, oldEndVNode.el.nextSibling)
+      container.insertBefore(oldStartVNode.el, oldEndVNode.el.nextSibling) // 头节点的 DOM 移到尾节点的 DOM 的后面
       oldStartVNode = prevChildren[++oldStartIdx]
       newEndVNode = nextChildren[--newEndIdx]
     } else if (oldEndVNode.key === newStartVNode.key) {
       patch(oldEndVNode, newStartVNode, container)
-      container.insertBefore(oldEndIdx.el, oldStartVNode.el)
+      container.insertBefore(oldEndVNode.el, oldStartVNode.el) // 尾节点的 DOM 移到头节点的 DOM 前面
       oldEndVNode = prevChildren[--oldEndIdx]
       newStartVNode = nextChildren[++newStartIdx]
     } else {
-      console.log(prevChildren)
+      // 双端比较找不到相同的 key 时
+      // 查找和新头节点相同 key 的旧节点
       const idxInOld = prevChildren.findIndex(
         VNode => VNode && VNode.key === newStartVNode.key
       )
+
+      // 查找到，需要 patch 和把这个节点移动到旧头节点前面（最前面）
+      // 最后把这个节点原来的位置的值设为 undefined -> 后面如果遍历到这个节点时需要移位
       if (idxInOld > -1) {
         const VNodeToMove = prevChildren[idxInOld]
         patch(VNodeToMove, newStartVNode, container)
         container.insertBefore(VNodeToMove.el, oldStartVNode.el)
         prevChildren[idxInOld] = undefined
       } else {
+        // 查找不到，说明是新增的节点，直接挂载到旧头节点的 DOM 前面
         mount(newStartVNode, container, false, oldStartVNode.el)
       }
-      newStartVNode = nextChildren[++newStartIdx]
+      newStartVNode = nextChildren[++newStartIdx] // 更新新头节点
     }
   }
 
+  // 循环结束后
+  // 新增节点 -> 旧尾索引比旧头索引大（旧节点数量比新节点少）
   if (oldEndIdx < oldStartIdx) {
     for (let i = newStartIdx; i <= newEndIdx; i++) {
       mount(nextChildren[i], container, false, oldStartVNode.el)
     }
+    // 删除节点 -> 新尾索引比新头索引大（新节点数量比旧节点少）
   } else if (newEndIdx < newStartIdx) {
     for (let i = oldStartIdx; i <= oldEndIdx; i++) {
       container.removeChild(prevChildren[i].el)
@@ -150,7 +159,7 @@ export function twoSideDiff(
   }
 }
 
-// Vue3 Diff
+// Vue3 Diff ???
 export function advancedDiff(
   prevChildren,
   nextChildren,
@@ -165,7 +174,7 @@ export function advancedDiff(
   let nextEnd = nextChildren.length - 1
 
   out: {
-    // 去前缀
+    // 去相同前置 -> 向后遍历，直到 key 不同
     while (prevVNode.key === nextVNode.key) {
       patch(prevVNode, nextVNode, container)
       j++
@@ -179,7 +188,7 @@ export function advancedDiff(
     prevVNode = prevChildren[prevEnd]
     nextVNode = nextChildren[nextEnd]
 
-    // 去后缀
+    // 去相同后置 -> 向前遍历，直到 key 不同
     while (prevVNode.key === nextVNode.key) {
       patch(prevVNode, nextVNode, container)
       prevEnd--
@@ -192,6 +201,7 @@ export function advancedDiff(
     }
   }
 
+  // 新值节点 -> j ~ nextEnd 之间的节点应该被添加
   if (j > prevEnd && j <= nextEnd) {
     const nextPos = nextEnd + 1
     const refNode =
@@ -199,10 +209,12 @@ export function advancedDiff(
     while (j <= nextEnd) {
       mount(nextChildren[j++], container, false, refNode)
     }
+    // 删除节点 -> j ~ prevEnd 之间的节点应该被删除
   } else if (j > nextEnd) {
     while (j <= prevEnd) {
       container.removeChild(prevChildren[j++].el)
     }
+    // 移动节点
   } else {
     const nextLeft = nextEnd - j + 1
     const source = []
@@ -215,7 +227,7 @@ export function advancedDiff(
     let moved = false
     let pos = 0
 
-    let keyIndex = {}
+    let keyIndex = {} // k 的索引表
     for (let i = nextStart; i <= nextEnd; i++) {
       keyIndex[nextChildren[i].key] = i
     }
@@ -224,7 +236,7 @@ export function advancedDiff(
       prevVNode = prevChildren[i]
 
       if (patched < nextLeft) {
-        const k = keyIndex[prevVNode.key]
+        const k = keyIndex[prevVNode.key] // 快速查找 k
         if (typeof k !== 'undefined') {
           nextVNode = nextChildren[k]
           patch(prevVNode, nextVNode, container)
