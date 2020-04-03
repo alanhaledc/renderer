@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: 简单的 render demo
- * @Date: 2019/10/19
- * @LastEditTime: 2019/10/20
- */
-
 function render(vnode, container) {
   if (typeof vnode.tag === 'string') {
     mountElement(vnode, container)

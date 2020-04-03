@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: mount 函数，生成全新的 DOM
- * @Date: 2019/10/20
- * @LastEditTime : 2019/12/27
- */
-
 import { Flags, ChildrenFlags } from './flags'
 import patch, { patchData } from './patch'
 import { domPromsRE } from './util'

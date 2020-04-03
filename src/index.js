@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: render demo
- * @Date: 2019/10/18
- * @LastEditTime : 2019/12/29
- */
-
 import { createVNode as h, Portal, Fragment } from './vnode'
 import render from './render'
 

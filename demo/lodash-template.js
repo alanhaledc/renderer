@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: lodash.template 渲染组件
- * @Date: 2019/10/18
- * @LastEditTime: 2019/10/18
- */
-
 import { template } from 'lodash'
 
 function myComponent(props) {

@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: VNode 标识和 children 标识
- * @Date: 2019/10/19
- * @LastEditTime: 2019/10/22
- */
-
 const Flags = {
   ELEMENT: 1,
   FUNCTIONAL_COMPONENT: 1 << 1,

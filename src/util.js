@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: 工具函数
- * @Date: 2019/10/20
- * @LastEditTime : 2019/12/29
- */
-
 export const domPromsRE = /\[A-Z]|^(?:value|checked|selected|muted)$/
 
 const toString = Object.prototype.toString

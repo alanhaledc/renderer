@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: 核心 Diff 算法，这里实现了三种 Diff 算法
- * @Date: 2019/10/20
- * @LastEditTime : 2019/12/29
- */
-
 import { lis } from './util'
 
 // 没有 key 的 Diff 算法，简单粗暴

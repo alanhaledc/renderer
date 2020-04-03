@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: snabbdom 渲染组件
- * @Date: 2019/10/18
- * @LastEditTime: 2019/10/19
- */
-
 import { h, init } from 'snabbdom'
 
 const patch = init([])

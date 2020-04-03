@@ -1,10 +1,3 @@
-/*
- * @Author: Hale
- * @Description: 生成 VNode
- * @Date: 2019/10/19
- * @LastEditTime : 2019/12/28
- */
-
 import { Flags, ChildrenFlags } from './flags'
 
 // Fragment 是只有 children，没有标签和属性的片段
