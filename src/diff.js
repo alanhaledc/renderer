@@ -37,7 +37,6 @@ export function commonDiff(
   mount,
   patch
 ) {
-  debugger
   let lastIndex = 0 // prevChildren 最大索引值，初始值是 0
   for (let i = 0; i < nextChildren.length; i++) {
     const nextVNode = nextChildren[i]
@@ -48,17 +47,17 @@ export function commonDiff(
       if (nextVNode.key === prevVNode.key) {
         canFind = true
         patch(prevVNode, nextVNode, container) // 复用旧节点 -> 更新值
-        // 比最大索引小时（即索引变大时，从前往后移，有缺陷）-> 移动 DOM
+        // 比当前的最大索引小时，需要移动真实节点
         if (j < lastIndex) {
-          const refNode = nextChildren[i - 1].el.nextSibling // 参考节点：前一个 VNode 的 DOM 的下一个节点
-          container.insertBefore(prevVNode.el, refNode) // 移动到参考节点前面 -> 即前一个 VNode 的 DOM 的后面
+          const refNode = nextChildren[i - 1].el.nextSibling // 参考节点：前一个 VNode 的真实节点的下一个兄弟节点
+          container.insertBefore(prevVNode.el, refNode) // 移动到参考节点的前面，即前一个真实节点的后面
         } else {
           lastIndex = j // 更新 lastIndex 的值
         }
       }
     }
 
-    // 新增节点 -> prevChildren 的节点中找不到对应的 key
+    // 新增节点，紧跟在前一个节点后面或者最前面
     if (!canFind) {
       const refNode =
         i - 1 < 0 ? prevChildren[0].el : nextChildren[i - 1].el.nextSibling
@@ -66,7 +65,7 @@ export function commonDiff(
     }
   }
 
-  // 删除节点 -> nextChildren 的节点中不存在对应的 key
+  // 删除节点 -> nextChildren 的节点中不存在对应的 key 的节点
   for (let i = 0; i < prevChildren.length; i++) {
     const prevVNode = prevChildren[i]
     const has = nextChildren.find(nextVnode => nextVnode.key === prevVNode.key)
@@ -76,7 +75,7 @@ export function commonDiff(
   }
 }
 
-// Vue2 Diff -> 双端比较
+// Vue2 snabbdom Diff -> 双端比较，普适性更强
 export function doubleSideDiff(
   prevChildren,
   nextChildren,
@@ -116,8 +115,9 @@ export function doubleSideDiff(
       container.insertBefore(oldEndVNode.el, oldStartVNode.el) // 尾节点的 DOM 移到头节点的 DOM 前面
       oldEndVNode = prevChildren[--oldEndIdx]
       newStartVNode = nextChildren[++newStartIdx]
-    } else {
-      // 双端比较找不到相同的 key 时
+    }
+    // 双端比较找不到相同的 key 时
+    else {
       // 查找和新头节点相同 key 的旧节点
       const idxInOld = prevChildren.findIndex(
         VNode => VNode && VNode.key === newStartVNode.key
@@ -138,21 +138,24 @@ export function doubleSideDiff(
     }
   }
 
-  // 循环结束后
-  // 新增节点 -> 旧尾索引比旧头索引大（旧节点数量比新节点少）
-  if (oldEndIdx < oldStartIdx) {
+  // 循环结束后 -> 先增后减
+  // 比较旧头尾和新头尾的索引大小，哪个大小相反了说明这个数量少
+  // 然后根据情况是新增节点还是删除节点
+  // 新增节点 -> 旧头索引大于旧头尾索引时（旧节点数量比新节点少）
+  if (oldStartIdx > oldEndIdx) {
     for (let i = newStartIdx; i <= newEndIdx; i++) {
       mount(nextChildren[i], container, false, oldStartVNode.el)
     }
-    // 删除节点 -> 新尾索引比新头索引大（新节点数量比旧节点少）
-  } else if (newEndIdx < newStartIdx) {
+  }
+  // 删除节点 -> 新尾索引比新头索引大（新节点数量比旧节点少）
+  else if (newStartIdx > newEndIdx) {
     for (let i = oldStartIdx; i <= oldEndIdx; i++) {
       container.removeChild(prevChildren[i].el)
     }
   }
 }
 
-// Vue3 Diff ???
+// Vue3 inferno Diff
 export function advancedDiff(
   prevChildren,
   nextChildren,
@@ -166,14 +169,12 @@ export function advancedDiff(
   let prevEnd = prevChildren.length - 1
   let nextEnd = nextChildren.length - 1
 
-  out: {
+  outer: {
     // 去相同前置 -> 向后遍历，直到 key 不同
     while (prevVNode.key === nextVNode.key) {
       patch(prevVNode, nextVNode, container)
       j++
-      if (j > prevEnd || j > nextEnd) {
-        break out
-      }
+      if (j > prevEnd || j > nextEnd) break outer // 性能优化
       prevVNode = prevChildren[j]
       nextVNode = nextChildren[j]
     }
@@ -186,15 +187,13 @@ export function advancedDiff(
       patch(prevVNode, nextVNode, container)
       prevEnd--
       nextEnd--
-      if (j > prevEnd || j > nextEnd) {
-        break out
-      }
+      if (j > prevEnd || j > nextEnd) break outer // 性能优化
       prevVNode = prevChildren[prevEnd]
       nextVNode = nextChildren[nextEnd]
     }
   }
 
-  // 新值节点 -> j ~ nextEnd 之间的节点应该被添加
+  // 新增节点 -> j ~ nextEnd 之间的节点应该被添加
   if (j > prevEnd && j <= nextEnd) {
     const nextPos = nextEnd + 1
     const refNode =
@@ -202,56 +201,59 @@ export function advancedDiff(
     while (j <= nextEnd) {
       mount(nextChildren[j++], container, false, refNode)
     }
-    // 删除节点 -> j ~ prevEnd 之间的节点应该被删除
-  } else if (j > nextEnd) {
+  }
+  // 删除节点 -> j ~ prevEnd 之间的节点应该被删除
+  else if (j > nextEnd) {
     while (j <= prevEnd) {
       container.removeChild(prevChildren[j++].el)
     }
-    // 移动节点
   } else {
-    const nextLeft = nextEnd - j + 1
-    const source = []
-    for (let i = 0; i < nextLeft; i++) {
-      source.push(-1)
-    }
-
+    const nextLeft = nextEnd - j + 1 // 新值未处理的节点数量
+    const source = new Array(nextLeft).fill(-1) // 长度 nextLeft 填充 -1 的数组
     const prevStart = j
     const nextStart = j
     let moved = false
-    let pos = 0
+    let lastIndex = 0 // 类似 react diff 的最大索引值
 
-    let keyIndex = {} // k 的索引表
+    let keyIndex = {} // 新值 key 的索引映射表 key -> index
+
     for (let i = nextStart; i <= nextEnd; i++) {
       keyIndex[nextChildren[i].key] = i
     }
+
     let patched = 0
+
+    // 遍历旧值
     for (let i = prevStart; i <= prevEnd; i++) {
       prevVNode = prevChildren[i]
 
       if (patched < nextLeft) {
-        const k = keyIndex[prevVNode.key] // 快速查找 k
+        const k = keyIndex[prevVNode.key] // 根据 key 查找它的索引
         if (typeof k !== 'undefined') {
           nextVNode = nextChildren[k]
           patch(prevVNode, nextVNode, container)
           patched++
-          source[k - nextStart] = i
-          if (k < pos) {
-            moved = true
+          source[k - nextStart] = i // 更新值，k - j 真正索引值
+          if (k < lastIndex) {
+            moved = true // 需要移动节点
           } else {
-            pos = k
+            lastIndex = k
           }
         } else {
-          container.removeChild(prevVNode.el)
+          container.removeChild(prevVNode.el) // 没找到索引，删除节点
         }
       } else {
-        container.removeChild(prevVNode.el)
+        container.removeChild(prevVNode.el) // 多余的节点，删除节点
       }
     }
 
     if (moved) {
-      const seq = lis(source)
-      let j = seq.length - 1
+      const seq = lis(source) // 最长增长子序列
+      let l = seq.length - 1
+
+      // 从后面开始遍历
       for (let i = nextLeft - 1; i >= 0; i--) {
+        // 新增节点，挂载到 nextPos 前面
         if (source[i] === -1) {
           const pos = i + nextStart
           const nextVNode = nextChildren[pos]
@@ -262,7 +264,9 @@ export function advancedDiff(
             false,
             nextPos < nextChildren.length ? nextChildren[nextPos].el : null
           )
-        } else if (i !== seq[j]) {
+        }
+        // 移动节点，移动到 nextPos 前面
+        else if (i !== seq[l]) {
           const pos = i + nextStart
           const nextVNode = nextChildren[pos]
           const nextPos = pos + 1
@@ -271,7 +275,7 @@ export function advancedDiff(
             nextPos < nextChildren.length ? nextChildren[nextPos].el : null
           )
         } else {
-          j--
+          l--
         }
       }
     }
