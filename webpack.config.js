@@ -1,38 +1,38 @@
-const path = require('path')
-const webpack = require('webpack')
-const HtmlWebpackPlugin = require('html-webpack-plugin')
+const path = require("path");
+const webpack = require("webpack");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 module.exports = {
-  entry: path.resolve(__dirname, 'src/index.js'),
-  devtool: 'cheap-module-eval-source-map',
+  entry: path.resolve(__dirname, "src/index.js"),
+  devtool: "cheap-module-eval-source-map",
   output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js'
+    path: path.resolve(__dirname, "dist"),
+    filename: "bundle.js",
   },
   devServer: {
-    hot: true
+    hot: true,
   },
   resolve: {
-    extensions: ['.js']
+    extensions: [".js"],
   },
   module: {
     rules: [
       {
         test: /\.jsx?$/,
-        use: 'babel-loader',
-        exclude: /node_modules/
+        use: "babel-loader",
+        exclude: /node_modules/,
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader']
-      }
-    ]
+        use: ["style-loader", "css-loader"],
+      },
+    ],
   },
   plugins: [
     new webpack.HotModuleReplacementPlugin(),
     new HtmlWebpackPlugin({
-      template: path.resolve(__dirname, 'template.html'),
-      filename: 'index.html'
-    })
-  ]
-}
+      template: path.resolve(__dirname, "template.html"),
+      filename: "index.html",
+    }),
+  ],
+};

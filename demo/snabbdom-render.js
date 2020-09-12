@@ -1,19 +1,20 @@
-import { h, init } from 'snabbdom'
+import { init } from "snabbdom/init";
+import { h } from "snabbdom/h";
 
-const patch = init([])
+const patch = init([]);
 
 function myComponent(props) {
-  return h('h1', props.title)
+  return h("h1", props.title);
 }
 
 const prevVnode = myComponent({
-  title: 'hello prev'
-})
+  title: "hello prev",
+});
 
-patch(document.getElementById('app'), prevVnode)
+patch(document.getElementById("app"), prevVnode);
 
 const nextVnode = myComponent({
-  title: 'hello next'
-})
+  title: "hello next",
+});
 
-patch(prevVnode, nextVnode)
+patch(prevVnode, nextVnode);

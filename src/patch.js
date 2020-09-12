@@ -1,59 +1,59 @@
-import { Flags, ChildrenFlags } from './flags'
-import mount from './mount'
-import { domPromsRE, isPlainObj } from './util'
-import { doubleSideDiff as diff } from './diff'
+import { Flags, ChildrenFlags } from "./flags";
+import mount from "./mount";
+import { domPromsRE, isPlainObj } from "./util";
+import { doubleSideDiff as diff } from "./diff";
 
 export default function patch(prevVNode, nextVNode, container) {
-  const nextFlags = nextVNode.flags
-  const prevFlags = prevVNode.flags
+  const nextFlags = nextVNode.flags;
+  const prevFlags = prevVNode.flags;
 
   if (prevFlags !== nextFlags) {
-    replaceVNode(prevVNode, nextVNode, container)
+    replaceVNode(prevVNode, nextVNode, container);
   } else if (nextFlags & Flags.ELEMENT) {
-    patchElement(prevVNode, nextVNode, container)
+    patchElement(prevVNode, nextVNode, container);
   } else if (nextFlags & Flags.COMPONENT) {
-    patchComponent(prevVNode, nextVNode, container)
+    patchComponent(prevVNode, nextVNode, container);
   } else if (nextFlags & Flags.TEXT) {
-    patchText(prevVNode, nextVNode)
+    patchText(prevVNode, nextVNode);
   } else if (nextFlags & Flags.FRAGMENT) {
-    patchFragment(prevVNode, nextVNode, container)
+    patchFragment(prevVNode, nextVNode, container);
   } else if (nextFlags & Flags.PORTAL) {
-    patchPortal(prevVNode, nextVNode)
+    patchPortal(prevVNode, nextVNode);
   }
 }
 
 function replaceVNode(prevVNode, nextVNode, container) {
-  container.removeChild(prevVNode.el)
+  container.removeChild(prevVNode.el);
   if (prevVNode.flags & Flags.STATEFUL_COMPONENT) {
-    const instance = prevVNode.children
-    instance.unmounted && instance.unmounted() // 执行 unmounted 生命周期函数
+    const instance = prevVNode.children;
+    instance.unmounted && instance.unmounted(); // 执行 unmounted 生命周期函数
   }
-  mount(nextVNode, container)
+  mount(nextVNode, container);
 }
 
 function patchElement(prevVNode, nextVNode, container) {
   if (prevVNode.tag !== nextVNode.tag) {
-    replaceVNode(prevVNode, nextVNode, container)
-    return
+    replaceVNode(prevVNode, nextVNode, container);
+    return;
   }
 
-  const el = (nextVNode.el = prevVNode.el) // el 不变，为同一个引用
-  const prevData = prevVNode.data
-  const nextData = nextVNode.data
+  const el = (nextVNode.el = prevVNode.el); // el 不变，为同一个引用
+  const prevData = prevVNode.data;
+  const nextData = nextVNode.data;
 
   if (nextData) {
     for (let key in nextData) {
-      const prevValue = prevData[key]
-      const nextValue = nextData[key]
-      patchData(el, key, prevValue, nextValue)
+      const prevValue = prevData[key];
+      const nextValue = nextData[key];
+      patchData(el, key, prevValue, nextValue);
     }
   }
 
   if (prevData) {
     for (let key in prevData) {
-      const prevValue = prevData[key]
+      const prevValue = prevData[key];
       if (prevValue && !nextData.hasOwnProperty(key)) {
-        patchData(el, key, prevValue, null)
+        patchData(el, key, prevValue, null);
       }
     }
   }
@@ -64,54 +64,54 @@ function patchElement(prevVNode, nextVNode, container) {
     prevVNode.children,
     nextVNode.children,
     el
-  )
+  );
 }
 
 export function patchData(el, key, prevValue, nextValue) {
   switch (key) {
-    case 'style':
+    case "style":
       for (let k in nextValue) {
-        el.style[k] = nextValue[k]
+        el.style[k] = nextValue[k];
       }
       for (let k in prevValue) {
         if (!nextValue.hasOwnProperty(k)) {
-          el.style[k] = ''
+          el.style[k] = "";
         }
       }
-      break
-    case 'class':
-      let res = ''
-      if (typeof nextValue === 'string') {
-        res = nextValue
+      break;
+    case "class":
+      let res = "";
+      if (typeof nextValue === "string") {
+        res = nextValue;
       } else if (Array.isArray(nextValue)) {
         for (let i = 0; i < nextValue.length; i++) {
-          res += nextValue[i] + ' '
+          res += nextValue[i] + " ";
         }
       } else if (isPlainObj(nextValue)) {
         for (let name in nextValue) {
           if (nextValue[name]) {
-            res += name + ' '
+            res += name + " ";
           }
         }
       }
       if (isSVG) {
-        el.setAttribute('class', res.trim())
+        el.setAttribute("class", res.trim());
       } else {
-        el.className = res.trim()
+        el.className = res.trim();
       }
-      break
+      break;
     default:
-      if (key[0] === 'o' && key[1] === 'n') {
+      if (key[0] === "o" && key[1] === "n") {
         if (prevValue) {
-          el.removeEventListener(key.slice(2), prevValue)
+          el.removeEventListener(key.slice(2), prevValue);
         }
         if (nextValue) {
-          el.addEventListener(key.slice(2), nextValue)
+          el.addEventListener(key.slice(2), nextValue);
         }
       } else if (domPromsRE.test(key)) {
-        el[key] = nextValue
+        el[key] = nextValue;
       } else {
-        el.setAttribute(key, nextValue)
+        el.setAttribute(key, nextValue);
       }
   }
 }
@@ -127,57 +127,57 @@ function patchChildren(
     case ChildrenFlags.NO_CHILDREN:
       switch (nextChildrenFlags) {
         case ChildrenFlags.NO_CHILDREN:
-          break
+          break;
         case ChildrenFlags.SINGLE_CHILDREN:
-          mount(nextChildren, container)
-          break
+          mount(nextChildren, container);
+          break;
         default:
           for (let i = 0; i < nextChildren.length; i++) {
-            mount(nextChildren[i], container)
+            mount(nextChildren[i], container);
           }
       }
-      break
+      break;
     case ChildrenFlags.SINGLE_CHILDREN:
       switch (nextChildrenFlags) {
         case ChildrenFlags.NO_CHILDREN:
-          container.removeChild(prevChildren.el)
-          break
+          container.removeChild(prevChildren.el);
+          break;
         case ChildrenFlags.SINGLE_CHILDREN:
-          patch(prevChildren, nextChildren, container)
-          break
+          patch(prevChildren, nextChildren, container);
+          break;
         default:
-          container.removeChild(prevChildren.el)
+          container.removeChild(prevChildren.el);
           for (let i = 0; i < nextChildren.length; i++) {
-            mount(nextChildren[i], container)
+            mount(nextChildren[i], container);
           }
       }
-      break
+      break;
     // case ChildrenFlags.MULTIPLE_CHILDREN
     default:
       switch (nextChildrenFlags) {
         case ChildrenFlags.NO_CHILDREN:
           for (let i = 0; i < prevChildren.length; i++) {
-            container.removeChild(prevChildren[i].el)
+            container.removeChild(prevChildren[i].el);
           }
-          break
+          break;
         case ChildrenFlags.SINGLE_CHILDREN:
           for (let i = 0; i < prevChildren.length; i++) {
-            container.removeChild(prevChildren[i].el)
+            container.removeChild(prevChildren[i].el);
           }
-          mount(nextChildren, container)
-          break
+          mount(nextChildren, container);
+          break;
         default:
           // MULTIPLE_CHILDREN => MULTIPLE_CHILDREN
           // 这里才需要使用 Diff 算法，尽可能的复用节点
-          diff(prevChildren, nextChildren, container, mount, patch)
+          diff(prevChildren, nextChildren, container, mount, patch);
       }
   }
 }
 
 function patchText(prevVNode, nextVNode) {
-  const el = (nextVNode.el = prevVNode.el) // el 不变，同一个引用
+  const el = (nextVNode.el = prevVNode.el); // el 不变，同一个引用
   if (nextVNode.children !== prevVNode.children) {
-    el.nodeValue = nextVNode.children
+    el.nodeValue = nextVNode.children;
   }
 }
 
@@ -189,18 +189,18 @@ function patchFragment(prevVNode, nextVNode, container) {
     prevVNode.children,
     nextVNode.children,
     container
-  )
+  );
 
   // 再更新 el
   switch (nextVNode.childrenFlags) {
     case ChildrenFlags.NO_CHILDREN:
-      nextVNode.el = prevVNode.el
+      nextVNode.el = prevVNode.el;
     case ChildrenFlags.SINGLE_CHILDREN:
-      nextVNode.el = nextVNode.children.el
-      break
+      nextVNode.el = nextVNode.children.el;
+      break;
     default:
-      nextVNode.el = nextVNode.children[0].el // 存储第一个 Vnode 的 el
-      break
+      nextVNode.el = nextVNode.children[0].el; // 存储第一个 Vnode 的 el
+      break;
   }
 }
 
@@ -212,27 +212,27 @@ function patchPortal(prevVNode, nextVNode) {
     prevVNode.children,
     nextVNode.children,
     prevVNode.tag // target
-  )
+  );
 
   // 更新 el
-  nextVNode.el = prevVNode.el
+  nextVNode.el = prevVNode.el;
 
   // 新旧节点不同，需要移动子节点
   if (nextVNode.tag !== prevVNode.tag) {
     const container =
-      typeof nextVNode.tag === 'string'
+      typeof nextVNode.tag === "string"
         ? document.querySelector(nextVNode.tag)
-        : nextVNode.tag
+        : nextVNode.tag;
 
     switch (nextVNode.childrenFlags) {
       case ChildrenFlags.NO_CHILDREN:
-        break
+        break;
       case ChildrenFlags.SINGLE_CHILDREN:
-        container.appendChild(nextVNode.children.el)
-        break
+        container.appendChild(nextVNode.children.el);
+        break;
       default:
         for (let i = 0; i < nextVNode.children.length; i++) {
-          container.appendChild(nextVNode.children[i].el)
+          container.appendChild(nextVNode.children[i].el);
         }
     }
   }
@@ -240,16 +240,16 @@ function patchPortal(prevVNode, nextVNode) {
 
 function patchComponent(prevVNode, nextVNode, container) {
   if (nextVNode.tag !== prevVNode.tag) {
-    replaceVNode(prevVNode, nextVNode, container)
+    replaceVNode(prevVNode, nextVNode, container);
   } else if (nextVNode.flags & Flags.STATEFUL_COMPONENT) {
-    const instance = (nextVNode.children = prevVNode.children)
-    instance.$props = nextVNode.data
-    instance._update()
+    const instance = (nextVNode.children = prevVNode.children);
+    instance.$props = nextVNode.data;
+    instance._update();
   } else {
-    const handle = (nextVNode.handle = prevVNode.handle)
-    handle.prev = prevVNode
-    handle.next = nextVNode
-    handle.container = container
-    handle.update()
+    const handle = (nextVNode.handle = prevVNode.handle);
+    handle.prev = prevVNode;
+    handle.next = nextVNode;
+    handle.container = container;
+    handle.update();
   }
 }
